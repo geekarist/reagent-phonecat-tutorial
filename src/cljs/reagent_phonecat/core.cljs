@@ -1,6 +1,6 @@
 (ns reagent-phonecat.core
-    (:require [reagent.core :as rg])
-    )
+  (:require [reagent.core :as rg])
+  )
 
 (enable-console-print!)
 
@@ -9,9 +9,9 @@ Try and call this function from the ClojureScript REPL."
   [& [name]]
   (print "Hello," (or name "World") "!"))
 
-(defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
+(defn mount-root "Creates the application view and injects ('mounts') it into the root element."
   []
-  (rg/render 
+  (rg/render
     [:p "Nothing here " (str "yet" "!")]
     (.getElementById js/document "app")))
 
