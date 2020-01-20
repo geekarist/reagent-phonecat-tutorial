@@ -1,6 +1,6 @@
 (ns reagent-phonecat.core
-    (:require [reagent.core :as rg])
-    )
+  (:require [reagent.core :as rg])
+  )
 
 (enable-console-print!)
 
@@ -12,17 +12,17 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; Application data
 
-(def hardcoded-phones-data [{:name "Nexus S" 
+(def hardcoded-phones-data [{:name        "Nexus S"
                              :description "Fast just got faster with Nexus S"}
-                            {:name "Motorola XOOM™ with Wi-Fi" 
+                            {:name        "Motorola XOOM™ with Wi-Fi"
                              :description "The Next, Next Generation tablet."}])
 
 ;; --------------------------------------------
 ;; View components
 
-(declare ;; here we declare our components to define their in an order that feels natural.  
+(declare                                                    ;; here we declare our components to define their in an order that feels natural.
   <phones-list>
-    <phone-item>)
+  <phone-item>)
 
 (defn <phones-list> "An unordered list of phones"
   [phones-list]
@@ -34,13 +34,13 @@ Try and call this function from the ClojureScript REPL."
 
 (defn <phone-item> "An phone item component"
   [{:keys [name description] :as phone}]
-  [:li.phone-item 
+  [:li.phone-item
    [:span name]
    [:p description]])
 
-(defn mount-root "Creates the application view and injects ('mounts') it into the root element." 
+(defn mount-root "Creates the application view and injects ('mounts') it into the root element."
   []
-  (rg/render 
+  (rg/render
     [<phones-list> hardcoded-phones-data]
     (.getElementById js/document "app")))
 
