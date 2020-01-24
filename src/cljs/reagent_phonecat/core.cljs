@@ -25,10 +25,18 @@ Try and call this function from the ClojureScript REPL."
 ;; --------------------------------------------
 ;; Application data
 
-(def hardcoded-phones-data [{:name        "Nexus S"
-                             :description "Fast just got faster with Nexus S"}
+(def hardcoded-phones-data [{:name        "Pixel 4"
+                             :description "Le téléphone façon Google"
+                             :age         0}
+                            {:name        "Pixel 3A XL"
+                             :description "Tout ce qui vous plaît chez Google - dans un téléphone."
+                             :age         1}
                             {:name        "Motorola XOOM™ with Wi-Fi"
-                             :description "The Next, Next Generation tablet."}])
+                             :description "The Next, Next Generation tablet."
+                             :age         2}
+                            {:name        "Nexus S"
+                             :description "Fast just got faster with Nexus S"
+                             :age         3}])
 
 ;; --------------------------------------------
 ;; View components
@@ -37,13 +45,24 @@ Try and call this function from the ClojureScript REPL."
   <phones-list>
   <phone-item>)
 
-(defonce state (rg/atom {:phones hardcoded-phones-data
-                         :search ""}))
+(defonce state (rg/atom {:phones     hardcoded-phones-data
+                         :search     ""
+                         :order-prop :name}))
+
+(def order-prop-state (rg/cursor state [:order-prop]))
+
+(defn <order-prop-select> []
+  [:select {:value     @order-prop-state
+            :on-change #(reset! order-prop-state (-> % .-target .-value keyword))}
+   [:option {:value :name} "Alphabetical"]
+   [:option {:value :age} "Newest"]])
 
 (defn <phones-list>
   "An unordered list of phones"
-  [phones-list search]
-  (let [phones-list-filtered (->> phones-list (filter #(matches-search? search %)))]
+  [phones-list search order-prop]
+  (let [phones-list-filtered (->> phones-list
+                                  (filter #(matches-search? search %))
+                                  (sort-by order-prop))]
     [:div.container-fluid
      [:ul
       (for [phone phones-list-filtered]
@@ -56,6 +75,9 @@ Try and call this function from the ClojureScript REPL."
    [:span name]
    [:p description]])
 
+(defn update-search [state new-search]
+  (assoc state :search new-search))
+
 (defn <search-component> "The search input box" [search]
   [:span "Search: "
    [:input {:type      "text"
@@ -66,11 +88,10 @@ Try and call this function from the ClojureScript REPL."
   (let [{:keys [phones search]} @state]
     [:div.container-fluid
      [:div.row
-      [:div.col-md-2 [<search-component> search]]
-      [:div.col-md-8 [<phones-list> phones search]]]]))
-
-(defn update-search [state new-search]
-  (assoc state :search new-search))
+      [:div.col-md-2
+       [:p [<search-component> search]]
+       [:p "Sort by:" [<order-prop-select>]]]
+      [:div.col-md-8 [<phones-list> phones search @order-prop-state]]]]))
 
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element."
   []
