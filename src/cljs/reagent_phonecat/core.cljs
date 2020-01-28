@@ -1,9 +1,19 @@
 (ns reagent-phonecat.core
-  (:require [reagent.core :as rg]
-            [clojure.string :as str])
-  )
+  (:require [ajax.core :as ajx]
+            [reagent.core :as rg]
+            [clojure.string :as str]))
 
 (enable-console-print!)
+
+(defn load-phones! "Fetch phones and update the state"
+  [state]
+  (ajx/GET "/phones/phones.json"
+           {:handler         (fn [phones]
+                               (swap! state assoc :phones phones))
+            :error-handler   #(.warn js/console (str "Failed to fetch phones: " %))
+            :response-format :json
+            :keywords?        true})
+  )
 
 (defn say-hello! "Greets `name`, or the world if no name specified.
 Try and call this function from the ClojureScript REPL."
@@ -23,29 +33,14 @@ Try and call this function from the ClojureScript REPL."
          )))
 
 ;; --------------------------------------------
-;; Application data
-
-(def hardcoded-phones-data [{:name        "Pixel 4"
-                             :description "Le téléphone façon Google"
-                             :age         0}
-                            {:name        "Pixel 3A XL"
-                             :description "Tout ce qui vous plaît chez Google - dans un téléphone."
-                             :age         1}
-                            {:name        "Motorola XOOM™ with Wi-Fi"
-                             :description "The Next, Next Generation tablet."
-                             :age         2}
-                            {:name        "Nexus S"
-                             :description "Fast just got faster with Nexus S"
-                             :age         3}])
-
-;; --------------------------------------------
 ;; View components
 
-(declare                                                    ;; here we declare our components to define their in an order that feels natural.
+;; Here we declare our components to define their in an order that feels natural.
+(declare
   <phones-list>
   <phone-item>)
 
-(defonce state (rg/atom {:phones     hardcoded-phones-data
+(defonce state (rg/atom {:phones     []
                          :search     ""
                          :order-prop :name}))
 
@@ -70,10 +65,12 @@ Try and call this function from the ClojureScript REPL."
         )]]))
 
 (defn <phone-item> "An phone item component"
-  [{:keys [name description] :as _}]
-  [:li.phone-item
-   [:span name]
-   [:p description]])
+  [{:keys [name snippet id imageUrl] :as _}]
+  (let [phone-page-href (str "#/phones/" id)]
+    [:li.thumbnail
+     [:a.thumb {:href phone-page-href} [:img {:src imageUrl}]]
+     [:a {:href phone-page-href} name]
+     [:p snippet]]))
 
 (defn update-search [state new-search]
   (assoc state :search new-search))
@@ -100,6 +97,7 @@ Try and call this function from the ClojureScript REPL."
     (.getElementById js/document "app")))
 
 (defn init! []
+  (load-phones! state)
   (mount-root))
 
 (comment
@@ -111,4 +109,6 @@ Try and call this function from the ClojureScript REPL."
   (<phone-item> {:name "Nexus S" :description "Fast just got faster with Nexus S"})
   (swap! state assoc :search "fast")
   (swap! state assoc :search "xoom")
+  (let [my-atom (atom)]
+    (load-phones! my-atom))
   )
