@@ -12,7 +12,7 @@
                                (swap! state assoc :phones phones))
             :error-handler   #(.warn js/console (str "Failed to fetch phones: " %))
             :response-format :json
-            :keywords?        true})
+            :keywords?       true})
   )
 
 (defn say-hello! "Greets `name`, or the world if no name specified.
@@ -42,9 +42,13 @@ Try and call this function from the ClojureScript REPL."
 
 (defonce state (rg/atom {:phones     []
                          :search     ""
-                         :order-prop :name}))
+                         :order-prop :name
+                         :navigation {:page   :phone-list
+                                      :params {}}}))
 
 (def order-prop-state (rg/cursor state [:order-prop]))
+
+(def navigational-state (rg/cursor state [:navigation]))
 
 (defn <order-prop-select> []
   [:select {:value     @order-prop-state
@@ -81,7 +85,16 @@ Try and call this function from the ClojureScript REPL."
             :value     search
             :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
 
-(defn <top-component> []
+(defn <phone-detail-page> [phone]
+  [:div "TBD: detail view for " [:span (:name phone)]]
+  )
+
+(defn- find-phone-by-id [phones id]
+  (->> phones
+       (filter #(= (:id %) id))
+       first))
+
+(defn <phone-list-page> []
   (let [{:keys [phones search]} @state]
     [:div.container-fluid
      [:div.row
@@ -89,6 +102,16 @@ Try and call this function from the ClojureScript REPL."
        [:p [<search-component> search]]
        [:p "Sort by:" [<order-prop-select>]]]
       [:div.col-md-8 [<phones-list> phones search @order-prop-state]]]]))
+
+(defn <top-component> []
+  (let [{:keys [page params]} @navigational-state]
+    [:div.container-fluid
+     (case page
+       :phone-list [<phone-list-page>]
+       :phone-detail (let [phone-id (:phone-id params)
+                           phone (find-phone-by-id (:phones @state) phone-id)]
+                       [<phone-detail-page> phone])
+       [:div "Sorry, the requested page does not exist"])]))
 
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element."
   []
@@ -111,4 +134,9 @@ Try and call this function from the ClojureScript REPL."
   (swap! state assoc :search "xoom")
   (let [my-atom (atom)]
     (load-phones! my-atom))
+  (reset! navigational-state {:page :phone-list :params {}})
+  (reset! navigational-state
+          {:page   :phone-detail
+           :params {:phone-id "motorola-xoom"}})
+  (find-phone-by-id (:phones @state) "motorola-xoom")
   )
