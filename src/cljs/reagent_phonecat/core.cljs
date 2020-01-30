@@ -1,9 +1,22 @@
 (ns reagent-phonecat.core
   (:require [ajax.core :as ajx]
             [reagent.core :as rg]
-            [clojure.string :as str]))
+            [clojure.string :as str]
+            [bidi.bidi :as b :include-macros true]
+            ))
 
 (enable-console-print!)
+
+(defn path-to-nav [routes path]
+  (let [matched (b/match-route routes path)
+        {:keys [handler route-params]} matched]
+    {:page   handler
+     :params route-params}))
+
+(defn nav-to-path [routes nav]
+  (let [{:keys [page params]} nav
+        flat-params (->> params seq flatten)]
+    (apply b/path-for routes page flat-params)))
 
 (defn load-phones! "Fetch phones and update the state"
   [state]
@@ -34,6 +47,10 @@ Try and call this function from the ClojureScript REPL."
 
 ;; --------------------------------------------
 ;; View components
+
+(def routes
+  ["/phones" {""              :phone-list
+              ["/" :phone-id] :phone-detail}])
 
 ;; Here we declare our components to define their in an order that feels natural.
 (declare
@@ -139,4 +156,12 @@ Try and call this function from the ClojureScript REPL."
           {:page   :phone-detail
            :params {:phone-id "motorola-xoom"}})
   (find-phone-by-id (:phones @state) "motorola-xoom")
+  routes
+  (b/match-route routes "/phones")
+  (b/match-route routes "/phones/bla")
+
+  (path-to-nav routes "/phones")
+  (nav-to-path routes {:page :phone-list})
+
+  (path-to-nav routes "/phones/moto")
   )
