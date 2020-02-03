@@ -1,11 +1,25 @@
 (ns reagent-phonecat.core
+  (:import [goog History])
   (:require [ajax.core :as ajx]
             [reagent.core :as rg]
             [clojure.string :as str]
+            [goog.events :as events]
             [bidi.bidi :as b :include-macros true]
+            [goog.history.EventType :as EventType]
             ))
 
 (enable-console-print!)
+
+(defonce history (History.))
+
+(defn hook-browser-navigation
+  "Listen to navigation events and update the application state"
+  [routes]
+  (doto history
+    (events/listen
+      EventType/NAVIGATE
+      #(js/console.log %))
+    (.setEnabled true)))
 
 (defn path-to-nav [routes path]
   (let [matched (b/match-route routes path)
@@ -164,4 +178,8 @@ Try and call this function from the ClojureScript REPL."
   (nav-to-path routes {:page :phone-list})
 
   (path-to-nav routes "/phones/moto")
+
+  history
+
+  (hook-browser-navigation routes)
   )
