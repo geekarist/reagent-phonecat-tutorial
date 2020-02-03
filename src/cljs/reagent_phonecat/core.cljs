@@ -12,14 +12,9 @@
 
 (defonce history (History.))
 
-(defn hook-browser-navigation
-  "Listen to navigation events and update the application state"
-  [routes]
-  (doto history
-    (events/listen
-      EventType/NAVIGATE
-      #(js/console.log %))
-    (.setEnabled true)))
+(def routes
+  ["/phones" {""              :phone-list
+              ["/" :phone-id] :phone-detail}])
 
 (defn path-to-nav [routes path]
   (let [matched (b/match-route routes path)
@@ -31,6 +26,19 @@
   (let [{:keys [page params]} nav
         flat-params (->> params seq flatten)]
     (apply b/path-for routes page flat-params)))
+
+(defn hook-browser-navigation!
+  "Listen to navigation events and update the application state"
+  [routes]
+  (doto history
+    (events/listen
+      EventType/NAVIGATE
+      (fn [event]
+        (let [path (.-token event)
+              nav (path-to-nav routes path)
+              {:keys [page params]} nav]
+          (js/console.log (str "Page: " page ", params: " params)))))
+    (.setEnabled true)))
 
 (defn load-phones! "Fetch phones and update the state"
   [state]
@@ -61,10 +69,6 @@ Try and call this function from the ClojureScript REPL."
 
 ;; --------------------------------------------
 ;; View components
-
-(def routes
-  ["/phones" {""              :phone-list
-              ["/" :phone-id] :phone-detail}])
 
 ;; Here we declare our components to define their in an order that feels natural.
 (declare
@@ -152,6 +156,7 @@ Try and call this function from the ClojureScript REPL."
 
 (defn init! []
   (load-phones! state)
+  (hook-browser-navigation! routes)
   (mount-root))
 
 (comment
@@ -181,5 +186,5 @@ Try and call this function from the ClojureScript REPL."
 
   history
 
-  (hook-browser-navigation routes)
+  (hook-browser-navigation! routes)
   )
