@@ -27,6 +27,17 @@
         flat-params (->> params seq flatten)]
     (apply b/path-for routes page flat-params)))
 
+(defonce state (rg/atom {:phones     []
+                         :search     ""
+                         :order-prop :name
+                         :navigation {:page   :phone-list
+                                      :params {}}}))
+
+(def navigational-state (rg/cursor state [:navigation]))
+
+(defn navigate-to! [routes nav]
+  .setToken history (nav-to-path routes nav))
+
 (defn hook-browser-navigation!
   "Listen to navigation events and update the application state"
   [routes]
@@ -37,7 +48,10 @@
         (let [path (.-token event)
               nav (path-to-nav routes path)
               {:keys [page params]} nav]
-          (js/console.log (str "Page: " page ", params: " params)))))
+          (js/console.log (str "Page: " page ", params: " params))
+          (if page                                          ; If target page is known
+            (reset! navigational-state nav)                 ; Then navigate to page
+            (navigate-to! routes {:page :phones})))))       ; Else go to default page
     (.setEnabled true)))
 
 (defn load-phones! "Fetch phones and update the state"
@@ -50,6 +64,10 @@
             :keywords?       true})
   )
 
+;; --------------------------------------------
+;; View components
+
+;; Here we declare our components to define their in an order that feels natural.
 (defn say-hello! "Greets `name`, or the world if no name specified.
 Try and call this function from the ClojureScript REPL."
   [& [name]]
@@ -67,23 +85,11 @@ Try and call this function from the ClojureScript REPL."
          (some #(re-find qp %))
          )))
 
-;; --------------------------------------------
-;; View components
-
-;; Here we declare our components to define their in an order that feels natural.
 (declare
   <phones-list>
   <phone-item>)
 
-(defonce state (rg/atom {:phones     []
-                         :search     ""
-                         :order-prop :name
-                         :navigation {:page   :phone-list
-                                      :params {}}}))
-
 (def order-prop-state (rg/cursor state [:order-prop]))
-
-(def navigational-state (rg/cursor state [:navigation]))
 
 (defn <order-prop-select> []
   [:select {:value     @order-prop-state
@@ -178,13 +184,9 @@ Try and call this function from the ClojureScript REPL."
   routes
   (b/match-route routes "/phones")
   (b/match-route routes "/phones/bla")
-
   (path-to-nav routes "/phones")
   (nav-to-path routes {:page :phone-list})
-
   (path-to-nav routes "/phones/moto")
-
   history
-
   (hook-browser-navigation! routes)
   )
