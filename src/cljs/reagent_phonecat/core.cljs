@@ -1,5 +1,6 @@
 (ns reagent-phonecat.core
   (:import [goog History])
+  (:use [cljs.pprint :only [pprint]])
   (:require [ajax.core :as ajx]
             [reagent.core :as rg]
             [clojure.string :as str]
@@ -44,6 +45,9 @@
         flat-params (->> params seq flatten)]
     (apply b/path-for routes page flat-params)))
 
+(defn navigate-to! [routes nav]
+  .setToken history (nav-to-path routes nav))
+
 (defn hook-browser-navigation!
   "Listen to navigation events and update the application state"
   [routes]
@@ -60,17 +64,18 @@
             (navigate-to! routes {:page :phones})))))       ; Else go to default page
     (.setEnabled true)))
 
-(defn navigate-to! [routes nav]
-  .setToken history (nav-to-path routes nav))
-
 ; endregion
 
 ; region -- API --
 
 (defn load-phone-details! [state phone-id]
   (ajx/GET (str "/phones/" phone-id ".json")
-           :handler (fn [phone-data] (swap! state assoc-in [:phone-by-id phone-id] phone-data))
-           :error-handler (fn [error] (.warn js/console (str "Failed to fetch phone data: " error)))
+           :handler (fn [phone-data]
+                      (pprint phone-data)
+                      (swap! state assoc-in [:phone-by-id phone-id] phone-data))
+           :error-handler (fn [error]
+                            (.warn js/console
+                                   (str "Failed to fetch phone data: " error)))
            :response-format :json
            :keywords? true))
 
@@ -210,6 +215,8 @@
   (path-to-nav routes "/phones/moto")
   history
   (hook-browser-navigation! routes)
+  (load-phone-details! state "motorola-xoom")
+  (:phone-by-id state)
   )
 
 ; endregion
