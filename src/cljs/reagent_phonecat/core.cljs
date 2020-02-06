@@ -27,13 +27,21 @@
         flat-params (->> params seq flatten)]
     (apply b/path-for routes page flat-params)))
 
-(defonce state (rg/atom {:phones     []
-                         :search     ""
-                         :order-prop :name
-                         :navigation {:page   :phone-list
-                                      :params {}}}))
+(defonce state (rg/atom {:phones      []
+                         :search      ""
+                         :order-prop  :name
+                         :phone-by-id {}
+                         :navigation  {:page   :phone-list
+                                       :params {}}}))
 
 (def navigational-state (rg/cursor state [:navigation]))
+
+(defn load-phone-details! [state phone-id]
+  (ajx/GET (str "/phones/" phone-id ".json")
+           :handler (fn [phone-data] (swap! state assoc-in [:phone-by-id phone-id] phone-data))
+           :error-handler (fn [error] (.warn js/console (str "Failed to fetch phone data: " error)))
+           :response-format :json
+           :keywords? true))
 
 (defn navigate-to! [routes nav]
   .setToken history (nav-to-path routes nav))
@@ -66,12 +74,6 @@
 
 ;; --------------------------------------------
 ;; View components
-
-;; Here we declare our components to define their in an order that feels natural.
-(defn say-hello! "Greets `name`, or the world if no name specified.
-Try and call this function from the ClojureScript REPL."
-  [& [name]]
-  (print "Hello," (or name "World") "!"))
 
 (defn matches-search? "Determines if a phone item matches a text query."
   [search data]
