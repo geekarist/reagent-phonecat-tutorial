@@ -10,6 +10,23 @@
 
 (enable-console-print!)
 
+; region -- State --
+
+(defonce state (rg/atom {:phones      []
+                         :search      ""
+                         :order-prop  :name
+                         :phone-by-id {}
+                         :navigation  {:page   :phone-list
+                                       :params {}}}))
+
+(def navigational-state (rg/cursor state [:navigation]))
+
+(def order-prop-state (rg/cursor state [:order-prop]))
+
+; endregion
+
+; region -- Routing --
+
 (defonce history (History.))
 
 (def routes
@@ -27,25 +44,6 @@
         flat-params (->> params seq flatten)]
     (apply b/path-for routes page flat-params)))
 
-(defonce state (rg/atom {:phones      []
-                         :search      ""
-                         :order-prop  :name
-                         :phone-by-id {}
-                         :navigation  {:page   :phone-list
-                                       :params {}}}))
-
-(def navigational-state (rg/cursor state [:navigation]))
-
-(defn load-phone-details! [state phone-id]
-  (ajx/GET (str "/phones/" phone-id ".json")
-           :handler (fn [phone-data] (swap! state assoc-in [:phone-by-id phone-id] phone-data))
-           :error-handler (fn [error] (.warn js/console (str "Failed to fetch phone data: " error)))
-           :response-format :json
-           :keywords? true))
-
-(defn navigate-to! [routes nav]
-  .setToken history (nav-to-path routes nav))
-
 (defn hook-browser-navigation!
   "Listen to navigation events and update the application state"
   [routes]
@@ -62,6 +60,20 @@
             (navigate-to! routes {:page :phones})))))       ; Else go to default page
     (.setEnabled true)))
 
+(defn navigate-to! [routes nav]
+  .setToken history (nav-to-path routes nav))
+
+; endregion
+
+; region -- API --
+
+(defn load-phone-details! [state phone-id]
+  (ajx/GET (str "/phones/" phone-id ".json")
+           :handler (fn [phone-data] (swap! state assoc-in [:phone-by-id phone-id] phone-data))
+           :error-handler (fn [error] (.warn js/console (str "Failed to fetch phone data: " error)))
+           :response-format :json
+           :keywords? true))
+
 (defn load-phones! "Fetch phones and update the state"
   [state]
   (ajx/GET "/phones/phones.json"
@@ -72,8 +84,9 @@
             :keywords?       true})
   )
 
-;; --------------------------------------------
-;; View components
+; endregion
+
+; region -- Components --
 
 (defn matches-search? "Determines if a phone item matches a text query."
   [search data]
@@ -87,11 +100,17 @@
          (some #(re-find qp %))
          )))
 
+(defn update-search [state new-search]
+  (assoc state :search new-search))
+
+(defn- find-phone-by-id [phones id]
+  (->> phones
+       (filter #(= (:id %) id))
+       first))
+
 (declare
   <phones-list>
   <phone-item>)
-
-(def order-prop-state (rg/cursor state [:order-prop]))
 
 (defn <order-prop-select> []
   [:select {:value     @order-prop-state
@@ -119,9 +138,6 @@
      [:a {:href phone-page-href} name]
      [:p snippet]]))
 
-(defn update-search [state new-search]
-  (assoc state :search new-search))
-
 (defn <search-component> "The search input box" [search]
   [:span "Search: "
    [:input {:type      "text"
@@ -131,11 +147,6 @@
 (defn <phone-detail-page> [phone]
   [:div "TBD: detail view for " [:span (:name phone)]]
   )
-
-(defn- find-phone-by-id [phones id]
-  (->> phones
-       (filter #(= (:id %) id))
-       first))
 
 (defn <phone-list-page> []
   (let [{:keys [phones search]} @state]
@@ -156,6 +167,10 @@
                        [<phone-detail-page> phone])
        [:div "Sorry, the requested page does not exist"])]))
 
+; endregion
+
+; region -- Startup --
+
 (defn mount-root "Creates the application view and injects ('mounts') it into the root element."
   []
   (rg/render
@@ -166,6 +181,10 @@
   (load-phones! state)
   (hook-browser-navigation! routes)
   (mount-root))
+
+; endregion
+
+; region -- REPL --
 
 (comment
   (in-ns 'reagent-phonecat.core)
@@ -192,3 +211,5 @@
   history
   (hook-browser-navigation! routes)
   )
+
+; endregion
