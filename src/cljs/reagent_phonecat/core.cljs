@@ -71,7 +71,6 @@
 (defn load-phone-details! [state phone-id]
   (ajx/GET (str "/phones/" phone-id ".json")
            :handler (fn [phone-data]
-                      (pprint phone-data)
                       (swap! state assoc-in [:phone-by-id phone-id] phone-data))
            :error-handler (fn [error]
                             (.warn js/console
@@ -216,7 +215,8 @@
   history
   (hook-browser-navigation! routes)
   (load-phone-details! state "motorola-xoom")
-  (:phone-by-id state)
+  (load-phone-details! state "motorola-atrix-4g")
+  (pprint (:phone-by-id @state))
   )
 
 ; endregion
