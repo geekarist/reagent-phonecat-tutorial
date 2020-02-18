@@ -140,6 +140,7 @@
     <phone-detail-page>
       <phone-detail>
       <phone-spec>
+        <phone-properties>
       checkmark)
 
 ; @formatter:on
@@ -194,14 +195,14 @@
 
 (defn <phone-detail> [phone]
   (let [{:keys [images name description availability additionalFeatures storage battery
-                connectivity android android sizeAndWeight display hardware camera]} phone
+                connectivity android sizeAndWeight display hardware camera]} phone
         {:keys [ram flash]} storage
         {:keys [type talkTime standbyTime]} battery
         {:keys [cell wifi bluetooth infrared gps]} connectivity
         {:keys [os ui]} android
         {:keys [dimensions weight]} sizeAndWeight
         {:keys [screenSize screenResolution touchScreen]} display
-        {:keys [cpu usb audioJack fmRadio accelerometer]} hardware
+        {:keys [cpu usb audioJack fmRadio accelerometer physicalKeyboard]} hardware
         {:keys [primary features]} camera]
     [:div
      [:img.phone {:src (first images)}]
@@ -213,19 +214,49 @@
         ^{:key img} [:li [:img {:src img}]])]
 
      [:ul.specs
-      [:li (str "Availability: " availability)]
-      [:li (str "Battery: " battery)]
-      [:li (str "Storage and Memory: " storage)]
-      [:li (str "Connectivity: " connectivity)]
-      [:li (str "Android: " android)]
-      [:li (str "Size and Weight: " sizeAndWeight)]
-      [:li (str "Display: " display)]
-      [:li (str "Hardware: " hardware)]
-      [:li (str "Camera: " camera)]
+      [<phone-spec> "Availability" [(cons "Network" availability)]]
+      [<phone-spec> "Battery" [["Type" type]
+                               ["Talk Time" talkTime]
+                               ["Standby Time (max)" standbyTime]]]
+      [<phone-spec> "Storage and Memory" [["Storage" flash]
+                                          ["Memory" ram]] >]
+      [<phone-spec> "Connectivity" [["Bluetooth" bluetooth]
+                                    ["Cellular" cell]
+                                    ["GPS" (checkmark gps)]
+                                    ["Infrared" (checkmark infrared)]
+                                    ["Wi-Fi" wifi]]]
+      [<phone-spec> "Android" [["OS" os]
+                               ["UI" (if (empty? ui) "None" ui)]]]
+      [<phone-spec> "Size and Weight" [(cons "Dimensions" dimensions)
+                                       ["Weight" weight]]]
+      [<phone-spec> "Display" [["Resolution" screenResolution]
+                               ["Size" screenSize]
+                               ["Touch Screen" (checkmark touchScreen)]]]
+      [<phone-spec> "Hardware" [["Accelerometer" (checkmark accelerometer)]
+                                ["Audio Jack" audioJack]
+                                ["CPU" cpu]
+                                ["FM Radio" (checkmark fmRadio)]
+                                ["Physical Keyboard" (checkmark physicalKeyboard)]
+                                ["USB" usb]]]
+      [<phone-spec> "Camera" [(cons "Features" features)
+                              ["Primary" primary]]]
       [:li
        [:dl
         [:dt "Additional features"]
         [:dd additionalFeatures]]]]]))
+
+(defn checkmark [input]
+  (if input \u2713 \u2718))
+
+(defn <phone-spec> [title kvs]
+  [:li
+   [:span title]
+   [<phone-properties> kvs]])
+
+(defn <phone-properties> [kvs]
+  [:dl (->> kvs
+            (mapcat (fn [[t & ds]]
+                      [^{:key t} [:dt t] (for [d ds] ^{:key d} [:dd d])])))])
 
 (defn <top-component> []
   (let [{:keys [page params]} @navigational-state]
@@ -282,8 +313,9 @@
   (load-phone-details! state "motorola-xoom")
   (load-phone-details! state "motorola-atrix-4g")
   (pprint (:phone-by-id @state))
-  (in-ns 'reagent-phonecat.core)
   (remove-watch navigational-state ::watch-nav-changes)
+
+  (in-ns 'reagent-phonecat.core)
   )
 
 ; endregion
