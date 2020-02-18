@@ -88,6 +88,22 @@
             :keywords?       true})
   )
 
+(defmulti load-page-data! (fn [page _] page))
+
+(defmethod load-page-data! :phone-list
+  [_ _] (load-phones! state))
+
+(defmethod load-page-data! :phone-detail
+  [_ {:keys [phone-id]}] (load-phone-details! state phone-id))
+
+(defn watch-nav-changes! []
+  (add-watch navigational-state
+             ::watch-nav-changes
+             (fn [_ _ old-state new-state]
+               (when-not (= old-state new-state)
+                 (let [{:keys [page params]} new-state]
+                   (load-page-data! page params))))))
+
 ; endregion
 
 ; region -- Components --
@@ -112,9 +128,21 @@
        (filter #(= (:id %) id))
        first))
 
+; @formatter:off
+
 (declare
-  <phones-list>
-  <phone-item>)
+  <top-component>
+    <phone-list-page>
+      <search-component>
+      <phone-list>
+        <phone-item>
+        ; ...
+    <phone-detail-page>
+      <phone-detail>
+      <phone-spec>
+      checkmark)
+
+; @formatter:on
 
 (defn <order-prop-select> []
   [:select {:value     @order-prop-state
@@ -122,7 +150,7 @@
    [:option {:value :name} "Alphabetical"]
    [:option {:value :age} "Newest"]])
 
-(defn <phones-list>
+(defn <phone-list>
   "An unordered list of phones"
   [phones-list search order-prop]
   (let [phones-list-filtered (->> phones-list
@@ -148,10 +176,6 @@
             :value     search
             :on-change (fn [e] (swap! state update-search (-> e .-target .-value)))}]])
 
-(defn <phone-detail-page> [phone]
-  [:div "TBD: detail view for " [:span (:name phone)]]
-  )
-
 (defn <phone-list-page> []
   (let [{:keys [phones search]} @state]
     [:div.container-fluid
@@ -159,16 +183,57 @@
       [:div.col-md-2
        [:p [<search-component> search]]
        [:p "Sort by:" [<order-prop-select>]]]
-      [:div.col-md-8 [<phones-list> phones search @order-prop-state]]]]))
+      [:div.col-md-8 [<phone-list> phones search @order-prop-state]]]]))
+
+(defn <phone-detail-page> [phone-id]                        ; <phone-page> in tutorial
+  (let [phone-cursor (rg/cursor state [:phone-by-id phone-id])
+        phone @phone-cursor]
+    (cond
+      phone [<phone-detail> phone]
+      :not-loaded-yet [:div "Phone data was not loaded yet"])))
+
+(defn <phone-detail> [phone]
+  (let [{:keys [images name description availability additionalFeatures storage battery
+                connectivity android android sizeAndWeight display hardware camera]} phone
+        {:keys [ram flash]} storage
+        {:keys [type talkTime standbyTime]} battery
+        {:keys [cell wifi bluetooth infrared gps]} connectivity
+        {:keys [os ui]} android
+        {:keys [dimensions weight]} sizeAndWeight
+        {:keys [screenSize screenResolution touchScreen]} display
+        {:keys [cpu usb audioJack fmRadio accelerometer]} hardware
+        {:keys [primary features]} camera]
+    [:div
+     [:img.phone {:src (first images)}]
+     [:h1 name]
+     [:p description]
+
+     [:ul.phone-thumbs
+      (for [img images]
+        ^{:key img} [:li [:img {:src img}]])]
+
+     [:ul.specs
+      [:li (str "Availability: " availability)]
+      [:li (str "Battery: " battery)]
+      [:li (str "Storage and Memory: " storage)]
+      [:li (str "Connectivity: " connectivity)]
+      [:li (str "Android: " android)]
+      [:li (str "Size and Weight: " sizeAndWeight)]
+      [:li (str "Display: " display)]
+      [:li (str "Hardware: " hardware)]
+      [:li (str "Camera: " camera)]
+      [:li
+       [:dl
+        [:dt "Additional features"]
+        [:dd additionalFeatures]]]]]))
 
 (defn <top-component> []
   (let [{:keys [page params]} @navigational-state]
     [:div.container-fluid
      (case page
        :phone-list [<phone-list-page>]
-       :phone-detail (let [phone-id (:phone-id params)
-                           phone (find-phone-by-id (:phones @state) phone-id)]
-                       [<phone-detail-page> phone])
+       :phone-detail (let [phone-id (:phone-id params)]
+                       [<phone-detail-page> phone-id])
        [:div "Sorry, the requested page does not exist"])]))
 
 ; endregion
@@ -184,6 +249,7 @@
 (defn init! []
   (load-phones! state)
   (hook-browser-navigation! routes)
+  (watch-nav-changes!)
   (mount-root))
 
 ; endregion
@@ -191,11 +257,10 @@
 ; region -- REPL --
 
 (comment
-  (in-ns 'reagent-phonecat.core)
   (matches-search? "yo2" {:yo "yo"})
   (if (matches-search? "yx.*" {:yo "yo" :yo2 "yo2"}) "OK" "Aww")
   (matches-search? "todo" {:name "todo" :description "todo"})
-  (<phones-list> [{:name "Nexus S" :description "Fast just got faster with Nexus S"}] "faster")
+  (<phone-list> [{:name "Nexus S" :description "Fast just got faster with Nexus S"}] "faster")
   (<phone-item> {:name "Nexus S" :description "Fast just got faster with Nexus S"})
   (swap! state assoc :search "fast")
   (swap! state assoc :search "xoom")
@@ -217,6 +282,8 @@
   (load-phone-details! state "motorola-xoom")
   (load-phone-details! state "motorola-atrix-4g")
   (pprint (:phone-by-id @state))
+  (in-ns 'reagent-phonecat.core)
+  (remove-watch navigational-state ::watch-nav-changes)
   )
 
 ; endregion
