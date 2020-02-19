@@ -190,60 +190,68 @@
   (let [phone-cursor (rg/cursor state [:phone-by-id phone-id])
         phone @phone-cursor]
     (cond
-      phone [<phone-detail> phone]
+      phone ^{:key phone-id} [<phone-detail> phone]
       :not-loaded-yet [:div "Phone data was not loaded yet"])))
 
 (defn <phone-detail> [phone]
-  (let [{:keys [images name description availability additionalFeatures storage battery
-                connectivity android sizeAndWeight display hardware camera]} phone
-        {:keys [ram flash]} storage
-        {:keys [type talkTime standbyTime]} battery
-        {:keys [cell wifi bluetooth infrared gps]} connectivity
-        {:keys [os ui]} android
-        {:keys [dimensions weight]} sizeAndWeight
-        {:keys [screenSize screenResolution touchScreen]} display
-        {:keys [cpu usb audioJack fmRadio accelerometer physicalKeyboard]} hardware
-        {:keys [primary features]} camera]
-    [:div
-     [:img.phone {:src (first images)}]
-     [:h1 name]
-     [:p description]
+  (let [{:keys [images]} phone
+        local-state (rg/atom {:main-image (first images)})]
+    (fn [phone]
+      (let [{:keys [images name description availability additionalFeatures storage battery
+                    connectivity android sizeAndWeight display hardware camera]} phone
+            {:keys [ram flash]} storage
+            {:keys [type talkTime standbyTime]} battery
+            {:keys [cell wifi bluetooth infrared gps]} connectivity
+            {:keys [os ui]} android
+            {:keys [dimensions weight]} sizeAndWeight
+            {:keys [screenSize screenResolution touchScreen]} display
+            {:keys [cpu usb audioJack fmRadio accelerometer physicalKeyboard]} hardware
+            {:keys [primary features]} camera]
+        [:div
+         [:img.phone {:src (:main-image @local-state)}]
+         [:h1 name]
+         [:p description]
 
-     [:ul.phone-thumbs
-      (for [img images]
-        ^{:key img} [:li [:img {:src img}]])]
+         [:div {:style {"margin-top"    "1em"
+                        "margin-bottom" "1em"
+                        "margin-left"   "auto"
+                        "margin-right"  "auto"}}
+          (for [img images]
+            ^{:key img} [:img {:src      img
+                               :width    "100px"
+                               :on-click #(swap! local-state assoc :main-image img)}])]
 
-     [:ul.specs
-      [<phone-spec> "Availability" [(cons "Network" availability)]]
-      [<phone-spec> "Battery" [["Type" type]
-                               ["Talk Time" talkTime]
-                               ["Standby Time (max)" standbyTime]]]
-      [<phone-spec> "Storage and Memory" [["Storage" flash]
-                                          ["Memory" ram]] >]
-      [<phone-spec> "Connectivity" [["Bluetooth" bluetooth]
-                                    ["Cellular" cell]
-                                    ["GPS" (checkmark gps)]
-                                    ["Infrared" (checkmark infrared)]
-                                    ["Wi-Fi" wifi]]]
-      [<phone-spec> "Android" [["OS" os]
-                               ["UI" (if (empty? ui) "None" ui)]]]
-      [<phone-spec> "Size and Weight" [(cons "Dimensions" dimensions)
-                                       ["Weight" weight]]]
-      [<phone-spec> "Display" [["Resolution" screenResolution]
-                               ["Size" screenSize]
-                               ["Touch Screen" (checkmark touchScreen)]]]
-      [<phone-spec> "Hardware" [["Accelerometer" (checkmark accelerometer)]
-                                ["Audio Jack" audioJack]
-                                ["CPU" cpu]
-                                ["FM Radio" (checkmark fmRadio)]
-                                ["Physical Keyboard" (checkmark physicalKeyboard)]
-                                ["USB" usb]]]
-      [<phone-spec> "Camera" [(cons "Features" features)
-                              ["Primary" primary]]]
-      [:li
-       [:dl
-        [:dt "Additional features"]
-        [:dd additionalFeatures]]]]]))
+         [:ul.specs
+          [<phone-spec> "Availability" [(cons "Network" availability)]]
+          [<phone-spec> "Battery" [["Type" type]
+                                   ["Talk Time" talkTime]
+                                   ["Standby Time (max)" standbyTime]]]
+          [<phone-spec> "Storage and Memory" [["Storage" flash]
+                                              ["Memory" ram]] >]
+          [<phone-spec> "Connectivity" [["Bluetooth" bluetooth]
+                                        ["Cellular" cell]
+                                        ["GPS" (checkmark gps)]
+                                        ["Infrared" (checkmark infrared)]
+                                        ["Wi-Fi" wifi]]]
+          [<phone-spec> "Android" [["OS" os]
+                                   ["UI" (if (empty? ui) "None" ui)]]]
+          [<phone-spec> "Size and Weight" [(cons "Dimensions" dimensions)
+                                           ["Weight" weight]]]
+          [<phone-spec> "Display" [["Resolution" screenResolution]
+                                   ["Size" screenSize]
+                                   ["Touch Screen" (checkmark touchScreen)]]]
+          [<phone-spec> "Hardware" [["Accelerometer" (checkmark accelerometer)]
+                                    ["Audio Jack" audioJack]
+                                    ["CPU" cpu]
+                                    ["FM Radio" (checkmark fmRadio)]
+                                    ["Physical Keyboard" (checkmark physicalKeyboard)]
+                                    ["USB" usb]]]
+          [<phone-spec> "Camera" [(cons "Features" features)
+                                  ["Primary" primary]]]
+          [:li
+           [:dl
+            [:dt "Additional features"]
+            [:dd additionalFeatures]]]]]))))
 
 (defn checkmark [input]
   (if input \u2713 \u2718))
