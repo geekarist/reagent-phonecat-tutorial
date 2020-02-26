@@ -1,15 +1,44 @@
 (ns reagent-phonecat.core
   (:import [goog History])
   (:use [cljs.pprint :only [pprint]])
+  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
   (:require [ajax.core :as ajx]
             [reagent.core :as rg]
             [clojure.string :as str]
             [goog.events :as events]
             [bidi.bidi :as b :include-macros true]
             [goog.history.EventType :as EventType]
+            [cljs.core.async :as a]
             ))
 
 (enable-console-print!)
+
+; region -- AJAX --
+
+(defn ajax-call [{:keys [method uri] :as opts}]
+  (let [=resp= (a/chan)]
+    (ajx/ajax-request (assoc opts
+                        :handler (fn [[ok r :as _]]
+                                   (if ok
+                                     (a/put! =resp= r)
+                                     (prn "AJAX Error" {:error r :request opts})))))
+    =resp=))
+
+(def ajax-defaults
+  {:format          (ajx/json-request-format)
+   :response-format (ajx/json-response-format {:keywords? true})})
+
+(defn fetch-phone-list []
+  (ajax-call (assoc ajax-defaults
+               :method :get
+               :uri "/phones/phones.json")))
+
+(defn fetch-phone-details [phone-id]
+  (ajax-call (assoc ajax-defaults
+               :method :get
+               :url (str "/phones/" phone-id ".json"))))
+
+; endregion
 
 ; region -- State --
 
@@ -46,63 +75,56 @@
     (apply b/path-for routes page flat-params)))
 
 (defn navigate-to! [routes nav]
-  .setToken history (nav-to-path routes nav))
+  (.setToken history (nav-to-path routes nav)))
+
+(def =path-changes=
+  (a/chan (a/sliding-buffer 1)
+          (comp (map (fn [event] (.-token event)))
+                (dedupe))))
 
 (defn hook-browser-navigation!
   "Listen to navigation events and update the application state"
-  [routes]
+  []
   (doto history
     (events/listen
       EventType/NAVIGATE
       (fn [event]
-        (let [path (.-token event)
-              nav (path-to-nav routes path)
-              {:keys [page params]} nav]
-          (js/console.log (str "Page: " page ", params: " params))
-          (if page                                          ; If target page is known
-            (reset! navigational-state nav)                 ; Then navigate to page
-            (navigate-to! routes {:page :phones})))))       ; Else go to default page
+        (a/put! =path-changes= event)))
     (.setEnabled true)))
+
+(declare load-page-data)
+
+(defn listen-to-path-changes! [routes]
+  (go (loop [last-path "/phones"]
+        (when-let [next-path (a/<! =path-changes=)]
+          (let [next-path-nav (path-to-nav routes next-path)
+                {:keys [page params] :as next-path-nav-vect} next-path-nav
+                new-last-path (cond
+                                (nil? page) (do (.replaceToken history last-path)
+                                                last-path)
+                                :else (let [load-page-channel (load-page-data page params)
+                                            load-page-data-fn (a/<! load-page-channel)]
+                                        (swap! state load-page-data-fn)
+                                        (reset! navigational-state next-path-nav-vect)
+                                        next-path))]
+            (recur new-last-path))))))
 
 ; endregion
 
 ; region -- API --
 
-(defn load-phone-details! [state phone-id]
-  (ajx/GET (str "/phones/" phone-id ".json")
-           :handler (fn [phone-data]
-                      (swap! state assoc-in [:phone-by-id phone-id] phone-data))
-           :error-handler (fn [error]
-                            (.warn js/console
-                                   (str "Failed to fetch phone data: " error)))
-           :response-format :json
-           :keywords? true))
+(defmulti load-page-data (fn [page _] page))
 
-(defn load-phones! "Fetch phones and update the state"
-  [state]
-  (ajx/GET "/phones/phones.json"
-           {:handler         (fn [phones]
-                               (swap! state assoc :phones phones))
-            :error-handler   #(.warn js/console (str "Failed to fetch phones: " %))
-            :response-format :json
-            :keywords?       true})
-  )
+(defmethod load-page-data :phone-list
+  [_ _]
+  (go (let [phones (a/<! (fetch-phone-list))]
+        #(assoc % :phones phones))))
 
-(defmulti load-page-data! (fn [page _] page))
-
-(defmethod load-page-data! :phone-list
-  [_ _] (load-phones! state))
-
-(defmethod load-page-data! :phone-detail
-  [_ {:keys [phone-id]}] (load-phone-details! state phone-id))
-
-(defn watch-nav-changes! []
-  (add-watch navigational-state
-             ::watch-nav-changes
-             (fn [_ _ old-state new-state]
-               (when-not (= old-state new-state)
-                 (let [{:keys [page params]} new-state]
-                   (load-page-data! page params))))))
+(defmethod load-page-data :phone-detail
+  [_ {:keys [phone-id]}]
+  (go
+    (let [phone-details (a/<! (fetch-phone-details phone-id))]
+      #(assoc-in % [:phone-by-id phone-id] phone-details))))
 
 ; endregion
 
@@ -160,8 +182,7 @@
     [:div.container-fluid
      [:ul
       (for [phone phones-list-filtered]
-        ^{:key (:name phone)} [<phone-item> phone]
-        )]]))
+        ^{:key (:name phone)} [<phone-item> phone])]]))
 
 (defn <phone-item> "An phone item component"
   [{:keys [name snippet id imageUrl] :as _}]
@@ -286,9 +307,8 @@
     (.getElementById js/document "app")))
 
 (defn init! []
-  (load-phones! state)
-  (hook-browser-navigation! routes)
-  (watch-nav-changes!)
+  (hook-browser-navigation!)
+  (listen-to-path-changes! routes)
   (mount-root))
 
 ; endregion
@@ -318,10 +338,13 @@
   (path-to-nav routes "/phones/moto")
   history
   (hook-browser-navigation! routes)
-  (load-phone-details! state "motorola-xoom")
-  (load-phone-details! state "motorola-atrix-4g")
   (pprint (:phone-by-id @state))
   (remove-watch navigational-state ::watch-nav-changes)
+
+  (go (-> (fetch-phone-list)
+          (a/<!)
+          (str)
+          (prn)))
 
   (in-ns 'reagent-phonecat.core)
   )
