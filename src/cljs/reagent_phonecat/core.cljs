@@ -13,33 +13,6 @@
 
 (enable-console-print!)
 
-; region -- AJAX --
-
-(defn ajax-call [{:keys [method uri] :as opts}]
-  (let [=resp= (a/chan)]
-    (ajx/ajax-request (assoc opts
-                        :handler (fn [[ok r :as _]]
-                                   (if ok
-                                     (a/put! =resp= r)
-                                     (prn "AJAX Error" {:error r :request opts})))))
-    =resp=))
-
-(def ajax-defaults
-  {:format          (ajx/json-request-format)
-   :response-format (ajx/json-response-format {:keywords? true})})
-
-(defn fetch-phone-list []
-  (ajax-call (assoc ajax-defaults
-               :method :get
-               :uri "/phones/phones.json")))
-
-(defn fetch-phone-details [phone-id]
-  (let [path (str "/phones/" phone-id ".json")
-        request (assoc ajax-defaults :method :get :uri path)]
-    (ajax-call request)))
-
-; endregion
-
 ; region -- State --
 
 (defonce state (rg/atom {:phones      []
@@ -113,6 +86,29 @@
 
 ; region -- API --
 
+(defn ajax-call [{:keys [method uri] :as opts}]
+  (let [=resp= (a/chan)]
+    (ajx/ajax-request (assoc opts
+                        :handler (fn [[ok r :as _]]
+                                   (if ok
+                                     (a/put! =resp= r)
+                                     (prn "AJAX Error" {:error r :request opts})))))
+    =resp=))
+
+(def ajax-defaults
+  {:format          (ajx/json-request-format)
+   :response-format (ajx/json-response-format {:keywords? true})})
+
+(defn fetch-phone-list []
+  (ajax-call (assoc ajax-defaults
+               :method :get
+               :uri "/phones/phones.json")))
+
+(defn fetch-phone-details [phone-id]
+  (let [path (str "/phones/" phone-id ".json")
+        request (assoc ajax-defaults :method :get :uri path)]
+    (ajax-call request)))
+
 (defmulti load-page-data (fn [page _] page))
 
 (defmethod load-page-data :phone-list
@@ -156,14 +152,16 @@
   <top-component>
     <phone-list-page>
       <search-component>
+      <order-prop-select>
       <phone-list>
         <phone-item>
         ; ...
     <phone-detail-page>
       <phone-detail>
       <phone-spec>
-        <phone-properties>
-      checkmark)
+        <phone-properties>)
+
+(declare checkmark)
 
 ; @formatter:on
 
