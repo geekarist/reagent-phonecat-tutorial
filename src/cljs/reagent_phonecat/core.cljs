@@ -34,9 +34,10 @@
                :uri "/phones/phones.json")))
 
 (defn fetch-phone-details [phone-id]
-  (ajax-call (assoc ajax-defaults
-               :method :get
-               :url (str "/phones/" phone-id ".json"))))
+  (let [path (str "/phones/" phone-id ".json")
+        request (assoc ajax-defaults :method :get :uri path)]
+    (prn request)
+    (ajax-call request)))
 
 ; endregion
 
