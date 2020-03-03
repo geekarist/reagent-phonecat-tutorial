@@ -1,17 +1,26 @@
 (ns reagent-phonecat.core
   (:import [goog History])
   (:use [cljs.pprint :only [pprint]])
-  (:require-macros [cljs.core.async.macros :refer [go go-loop]])
-  (:require [ajax.core :as ajx]
-            [reagent.core :as rg]
-            [clojure.string :as str]
-            [goog.events :as events]
-            [bidi.bidi :as b :include-macros true]
-            [goog.history.EventType :as EventType]
-            [cljs.core.async :as a]
-            ))
+  (:require-macros
+    [cljs.core.async.macros :refer [go go-loop]]
+    [reagent-phonecat.core :refer [<? go-safe]])
+  (:require
+    [ajax.core :as ajx]
+    [reagent.core :as rg]
+    [clojure.string :as str]
+    [goog.events :as events]
+    [bidi.bidi :as b :include-macros true]
+    [goog.history.EventType :as EventType]
+    [cljs.core.async :as a]))
 
 (enable-console-print!)
+
+; region -- Errors --
+
+(defn accept-or-throw [v]
+  (if (instance? js/Error v) (throw v) v))
+
+; endregion
 
 ; region -- State --
 
@@ -67,19 +76,24 @@
 
 (declare load-page-data)
 
+(defn back-to-path [history path]
+  (do (.replaceToken history path)
+      path))
+
 (defn listen-to-path-changes! [routes]
   (go (loop [last-path "/phones"]
         (when-let [next-path (a/<! =path-changes=)]
           (let [next-path-nav (path-to-nav routes next-path)
                 {:keys [page params] :as next-path-nav-vect} next-path-nav
                 new-last-path (cond
-                                (nil? page) (do (.replaceToken history last-path)
-                                                last-path)
-                                :else (let [load-page-channel (load-page-data page params)
-                                            load-page-data-fn (a/<! load-page-channel)]
-                                        (swap! state load-page-data-fn)
-                                        (reset! navigational-state next-path-nav-vect)
-                                        next-path))]
+                                (nil? page) (back-to-path history last-path)
+                                :else (try (let [load-page-channel (load-page-data page params)
+                                                 load-page-data-fn (a/<! load-page-channel)]
+                                             (swap! state load-page-data-fn)
+                                             (reset! navigational-state next-path-nav-vect)
+                                             next-path)
+                                           (catch js/Object err
+                                             (back-to-path history last-path))))]
             (recur new-last-path))))))
 
 ; endregion
@@ -90,9 +104,9 @@
   (let [=resp= (a/chan)]
     (ajx/ajax-request (assoc opts
                         :handler (fn [[ok r :as _]]
-                                   (if ok
-                                     (a/put! =resp= r)
-                                     (prn "AJAX Error" {:error r :request opts})))))
+                                   (a/put! =resp=
+                                           (if ok r
+                                                  (ex-info "AJAX Error" {:request opts :response r}))))))
     =resp=))
 
 (def ajax-defaults
@@ -113,13 +127,13 @@
 
 (defmethod load-page-data :phone-list
   [_ _]
-  (go (let [phones (a/<! (fetch-phone-list))]
-        #(assoc % :phones phones))))
+  (go-safe (let [phones (<? (fetch-phone-list))]
+             #(assoc % :phones phones))))
 
 (defmethod load-page-data :phone-detail
   [_ {:keys [phone-id]}]
-  (go
-    (let [phone-details (a/<! (fetch-phone-details phone-id))]
+  (go-safe
+    (let [phone-details (<? (fetch-phone-details phone-id))]
       #(assoc-in % [:phone-by-id phone-id] phone-details))))
 
 ; endregion
