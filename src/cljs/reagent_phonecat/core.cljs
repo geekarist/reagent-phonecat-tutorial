@@ -88,11 +88,13 @@
                 new-last-path (cond
                                 (nil? page) (back-to-path history last-path)
                                 :else (try (let [load-page-channel (load-page-data page params)
-                                                 load-page-data-fn (a/<! load-page-channel)]
+                                                 load-page-data-fn (<? load-page-channel)]
                                              (swap! state load-page-data-fn)
                                              (reset! navigational-state next-path-nav-vect)
                                              next-path)
                                            (catch js/Object err
+                                             (js/console.log "Error:")
+                                             (js/console.error err)
                                              (back-to-path history last-path))))]
             (recur new-last-path))))))
 
@@ -102,11 +104,15 @@
 
 (defn ajax-call [{:keys [method uri] :as opts}]
   (let [=resp= (a/chan)]
-    (ajx/ajax-request (assoc opts
-                        :handler (fn [[ok r :as _]]
-                                   (a/put! =resp=
-                                           (if ok r
-                                                  (ex-info "AJAX Error" {:request opts :response r}))))))
+    (ajx/ajax-request
+      (assoc opts
+        :handler (fn [[ok r :as _]]
+                   (a/put!
+                     =resp=
+                     (if ok r
+                            (ex-info
+                              "AJAX Error"
+                              (clj->js {:request opts :response r})))))))
     =resp=))
 
 (def ajax-defaults
