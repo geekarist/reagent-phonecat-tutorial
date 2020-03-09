@@ -179,12 +179,26 @@
           ; ...
     <phone-detail-page>
       <phone-detail>
+        <phone-carousel>
       <phone-spec>
         <phone-properties>)
 
 (declare checkmark)
 
 ; @formatter:on
+
+(def <phone-carousel>
+  (rg/create-class
+    {:reagent-render
+     (fn [images] [:div {:id "phone-pictures-carousel" :class "carousel slide"}
+                   [:div "TODO indicators"]
+                   [:div "TODO images"]
+                   [:div "TODO controls"]])
+     :component-did-mount
+     (fn [this]
+       (let [e (js/jQuery (rg/dom-node this))]
+         (-> e (aget "carousel") (.call e))                 ; Call (.carousel d) without breaking advanced compilation
+         ))}))
 
 (defn <order-prop-select> []
   [:select {:value     @order-prop-state
@@ -238,8 +252,7 @@
       :not-loaded-yet [:div "Phone data was not loaded yet"])))
 
 (defn <phone-detail> [phone]
-  (let [{:keys [images]} phone
-        local-state (rg/atom {:main-image (first images)})]
+  (let [{:keys [images]} phone]
     (fn [phone]
       (let [{:keys [images name description availability additionalFeatures storage battery
                     connectivity android sizeAndWeight display hardware camera]} phone
@@ -252,18 +265,11 @@
             {:keys [cpu usb audioJack fmRadio accelerometer physicalKeyboard]} hardware
             {:keys [primary features]} camera]
         [:div
-         [:img.phone {:src (:main-image @local-state)}]
+
          [:h1 name]
          [:p description]
 
-         [:div {:style {"margin-top"    "1em"
-                        "margin-bottom" "1em"
-                        "margin-left"   "auto"
-                        "margin-right"  "auto"}}
-          (for [img images]
-            ^{:key img} [:img {:src      img
-                               :width    "100px"
-                               :on-click #(swap! local-state assoc :main-image img)}])]
+         [:span.phone-carousel-container [<phone-carousel> images]]
 
          [:ul.specs
           [<phone-spec> "Availability" [(cons "Network" availability)]]
