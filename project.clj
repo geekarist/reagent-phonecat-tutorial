@@ -23,11 +23,10 @@
                  [prone "0.8.2"]
 
                  ;; client-side dependencies
-                 [cljsjs/react "0.13.3-0"]
-                 [reagent "0.5.0"]
+                 [cljsjs/react-with-addons "0.13.3-0"]
+                 [reagent "0.5.0" :exclusions [cljsjs/react]]
                  [cljs-ajax "0.3.14"]
-                 [bidi "2.1.6"]
-                 ]
+                 [bidi "2.1.6"]]
 
   ;; --------------------------------------------------------------------------------
 

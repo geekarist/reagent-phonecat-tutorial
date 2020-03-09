@@ -3,3 +3,37 @@
 body {
   padding-top: 20px;
 }
+
+.phone-listing-enter,
+.phone-listing-leave,
+.phone-listing-move {
+  -webkit-transition: 0.5s linear all;
+  -moz-transition: 0.5s linear all;
+  -o-transition: 0.5s linear all;
+  transition: 0.5s linear all;
+}
+
+.phone-listing-enter,
+.phone-listing-move {
+  opacity: 0;
+  height: 0;
+  overflow: hidden;
+}
+
+.phone-listing-move.phone-listing-active,
+.phone-listing-enter.phone-listing-enter-active {
+  opacity: 1;
+  height: 120px;
+}
+
+.phone-listing-leave {
+  opacity: 1;
+  overflow: hidden;
+}
+
+.phone-listing-leave.phone-listing-leave-active {
+  opacity: 0;
+  height: 0;
+  padding-top: 0;
+  padding-bottom: 0;
+}

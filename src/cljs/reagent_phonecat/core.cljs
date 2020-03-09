@@ -174,8 +174,9 @@
       <search-component>
       <order-prop-select>
       <phone-list>
-        <phone-item>
-        ; ...
+        <css-transition-group>
+          <phone-item>
+          ; ...
     <phone-detail-page>
       <phone-detail>
       <phone-spec>
@@ -191,6 +192,8 @@
    [:option {:value :name} "Alphabetical"]
    [:option {:value :age} "Newest"]])
 
+(def <css-transition-group> (rg/adapt-react-class (.. js/React -addons -CSSTransitionGroup)))
+
 (defn <phone-list>
   "An unordered list of phones"
   [phones-list search order-prop]
@@ -199,8 +202,10 @@
                                   (sort-by order-prop))]
     [:div.container-fluid
      [:ul
-      (for [phone phones-list-filtered]
-        ^{:key (:name phone)} [<phone-item> phone])]]))
+      [<css-transition-group>
+       {:transition-name "phone-listing"}
+       (for [phone phones-list-filtered]
+         ^{:key (:name phone)} [<phone-item> phone])]]]))
 
 (defn <phone-item> "An phone item component"
   [{:keys [name snippet id imageUrl] :as _}]
