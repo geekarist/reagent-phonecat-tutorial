@@ -313,11 +313,14 @@
 (defn <top-component> []
   (let [{:keys [page params]} @navigational-state]
     [:div.container-fluid
-     (case page
-       :phone-list [<phone-list-page>]
-       :phone-detail (let [phone-id (:phone-id params)]
-                       [<phone-detail-page> phone-id])
-       [:div "Sorry, the requested page does not exist"])]))
+     [:div.view-container
+      [<css-transition-group>
+       {:transition-name "view-frame"}
+       (case page
+         :phone-list ^{:key :page-key/phone-list} [<phone-list-page>]
+         :phone-detail (let [phone-id (:phone-id params)]
+                         ^{:key :page-key/phone-detail} [<phone-detail-page> phone-id])
+         ^{:key :page-key/not-found} [:div "Sorry, the requested page does not exist"])]]]))
 
 ; endregion
 
